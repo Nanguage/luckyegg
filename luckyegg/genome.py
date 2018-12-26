@@ -38,12 +38,20 @@ class GenomeRange(GenomeRange_):
         return f"GenomeRange({self.chrom}, {self.start}, {self.end})"
 
     def change_chromname(self) -> 'GenomeRange':
+        """
+        Change chromosome name style.
+
+        >>> GenomeRange("chr1", 1000, 2000).change_chromname()
+        GenomeRange(1, 1000, 2000)
+        >>> GenomeRange("1", 1000, 2000).change_chromname()
+        GenomeRange(chr1, 1000, 2000)
+        """
         chrom_ = change_chromname(self.chrom)
         return GenomeRange(chrom_, self.start, self.end)
 
     @property
     def length(self) -> int:
-        return self.end - self.start
+        return abs(self.end - self.start)
 
     def __contains__(self, another:'GenomeRange') -> bool:
         if another.chrom != self.chrom:
@@ -60,6 +68,11 @@ class GenomeRange(GenomeRange_):
             chr_, s, e = re.split("[:-]", region)[:3]
             s, e = int(s), int(e)
             grange = GenomeRange(chr_, s, e)
+        elif ':' in region:
+            chr_, s = region.split(":")
+            s = int(s)
+            e = None
+            grange = GenomeRange(chr_, s, e)
         else:
             chr_ = region
             grange = GenomeRange(chr_, None, None)
@@ -72,8 +85,7 @@ class GenomeRange(GenomeRange_):
         """
         chrom, start, end = grange
         msg = f"GenomeRange object: {repr(grange)} is not valid. "
-        if not isinstance(chrom, str):
-            raise ValueError(msg + f"chrom expect instance of str, get {type(chrom)}")
+        assert isinstance(chrom, str), msg + f"chrom expect instance of str, get {type(chrom)}"
 
         if start is None:
             if end is not None:
