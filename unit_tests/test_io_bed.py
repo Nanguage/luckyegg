@@ -100,3 +100,22 @@ def test_read_bed():
     test_(Bed9)
     test_(Bed12)
 
+    def test_general(base_type):
+        bed_path = create_sample('example_bed', base_type)
+        header_rows = infer_header_rows(bed_path)
+        with open(bed_path) as f:
+            header_rows = [f.readline() for _ in range(header_rows)]
+            for bed, line in zip(read_bed(bed_path, general=True), f):
+                assert isinstance(bed, BedGeneral)
+                assert str(bed) == line.strip()
+                items = line.strip().split()
+                genome_range_str = f"{items[0]}:{items[1]}-{items[2]}"
+                assert str(bed.genome_range) == genome_range_str
+                assert len(items) == len(bed.items) + 3
+        os.remove(bed_path)
+
+    test_general(BedGraph)
+    test_general(Bed6)
+    test_general(Bed9)
+    test_general(Bed12)
+

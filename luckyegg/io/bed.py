@@ -43,6 +43,13 @@ class BEDGraph_(NamedTuple):
     value: Union[int, float, str]
 
 
+class BEDGeneral_(NamedTuple):
+    chrom: str
+    start: int
+    end: int
+    items: List[str]
+
+
 class BEDLike(object):
     @classmethod
     def from_line(cls, line):
@@ -74,9 +81,36 @@ class Bed12(BEDLike, BED12_):
 class BedGraph(BEDLike, BEDGraph_):
     pass
 
+class BedGeneral(BEDLike, BEDGeneral_):
+    @classmethod
+    def from_line(cls, line):
+        items_ = line.split()
+        chrom = items_[0]
+        start = int(items_[1])
+        end = int(items_[2])
+        items = items_[3:]
+        return cls(chrom, start, end, items)
+    
+    def __str__(self):
+        return "\t".join([self.chrom, str(self.start), str(self.end)] + self.items)
 
-def read_bed(path: str) -> Iterable[BEDLike]:
-    bed_type = infer_bed_type(path)
+
+
+def read_bed(path: str, general:bool=False) -> Iterable[BEDLike]:
+    """
+    Read BED records form file.
+
+    Parameters
+    ----------
+    path : str
+        Path to bed(bed-like) file.
+    general : bool
+        Treat the file as general bed-like file or not.
+    """
+    if not general:
+        bed_type = infer_bed_type(path)
+    else:
+        bed_type = BedGeneral
     header_rows = infer_header_rows(path)
     with open(path) as f:
         [f.readline() for _ in range(header_rows)]
@@ -100,8 +134,10 @@ def infer_bed_type(path:str) -> Type[BEDLike]:
         return Bed6
     elif len(items) == 9:
         return Bed9
-    else:
+    elif len(items) == 12:
         return Bed12
+    else:
+        return BedGeneral
 
 
 def infer_header_rows(path:str) -> int:
