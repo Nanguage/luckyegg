@@ -43,6 +43,28 @@ def test_GenomeRange_in():
     assert gr1 in gr2
     assert gr2 not in gr1
     assert gr1 not in gr3
+    assert "chr1" in gr1
+    assert 1000 in gr1
+    assert 2000 in gr1
+    assert 0 not in gr1
+    assert genome_range("chr1:1000") in gr1
+    assert genome_range("chr1:2000") not in gr1
+    assert genome_range("chr1:1000") in genome_range("chr1:1000")
+    assert genome_range("chr1:1000") not in genome_range("chr1:2000")
+    assert genome_range("chr1") not in genome_range("chr1:2000")
+    assert genome_range("chr1") not in gr1
+    assert gr1 in genome_range("chr1")
+
+
+def test_GenomeRange_length():
+    gr1 = genome_range("chr1:1000-2000")
+    print(len(gr1))
+    assert len(gr1) == 1000
+    gr2 = genome_range("chr1:1000")
+    assert len(gr2) == 1
+    gr3 = genome_range("chr1")
+    with pytest.raises(ValueError):
+        len(gr3)
 
 
 def test_GenomeRange_convert():
@@ -78,8 +100,24 @@ def test_ChromSizes_from_file():
     chrsizes = ChromSizes.from_file(file_)
     assert chrsizes.unit == "bp"
     assert "chr1" in chrsizes.sizes
+    assert "chr1" in chrsizes
     assert isinstance(chrsizes["chr1"], int)
     with pytest.raises(TypeError):
-        "chr1" in chrsizes
+        1 in chrsizes
     os.remove(file_)
 
+
+def test_ChromSizes_contains():
+    chrsizes = ChromSizes({
+        "chr1": 10000,
+        "chr2": 200000,
+    })
+    assert "chr1" in chrsizes
+    assert "chr3" not in chrsizes
+    assert genome_range("chr1") in chrsizes
+    assert genome_range("chr3") not in chrsizes
+    assert genome_range("chr1:1000") in chrsizes
+    assert genome_range("chr1:3000000") not in chrsizes
+    assert genome_range("chr3:1000-2000") not in chrsizes
+    assert genome_range("chr1:100-200") in chrsizes
+    

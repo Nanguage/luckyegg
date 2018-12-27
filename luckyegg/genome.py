@@ -20,11 +20,13 @@ class GenomeRange(GenomeRange_):
     Attributes
     ----------
     chrom : str
-        chromosome name
+        chromosome name.
     start : {int, None}
         Range start position, 0 based.
     end : {int, None}
         Range end position, 1 based.
+    range_type : {'chromosome', 'range', 'point'}
+        Type of the GenomeRange.
     """
 
     def __str__(self) -> str:
@@ -38,6 +40,25 @@ class GenomeRange(GenomeRange_):
     def __repr__(self) -> str:
         return f"GenomeRange({self.chrom}, {self.start}, {self.end})"
 
+    @property
+    def range_type(self) -> str:
+        """
+        Genome range type:
+
+        >>> GenomeRange("chr1", None, None).range_type
+        'chromosome'
+        >>> GenomeRange("chr1", 1000, None).range_type
+        'point'
+        >>> GenomeRange("chr1", 0, 1000).range_type
+        'range'
+        """
+        if self.start is None and self.end is None:
+            return "chromosome"
+        elif self.start is not None and self.end is None:
+            return "point"
+        else:
+            return "range"
+
     def change_chromname(self) -> 'GenomeRange':
         """
         Change chromosome name style.
@@ -50,21 +71,37 @@ class GenomeRange(GenomeRange_):
         chrom_ = change_chromname(self.chrom)
         return GenomeRange(chrom_, self.start, self.end)
 
-    @property
-    def length(self) -> int:
-        return abs(self.end - self.start)
+    def __len__(self) -> int:
+        if self.end is not None:
+            return abs(self.end - self.start)
+        else:
+            if self.start is not None:
+                return 1
+            else:
+                raise ValueError("If start and end both None, can not compute length")
 
     def __contains__(self, another:Union['GenomeRange', Any]) -> bool:
         if isinstance(another, GenomeRange):
             if another.chrom != self.chrom:
                 return False
-            if another.start < self.start:
+
+            if self.range_type == "range" and another.range_type == "range":
+                if another.start < self.start:
+                    return False
+                if another.end > self.end:
+                    return False
+                return True
+            elif self.range_type == "range" and another.range_type == "point":
+                return self.start <= another.start < self.end
+            elif self.range_type == "chromosome" and (another.range_type == "point" or another.range_type == "range"):
+                return True
+            elif self.range_type == "point" and another.range_type == "point":
+                return self == another
+            else:
                 return False
-            if another.end > self.end:
-                return False
-            return True
+
         else:
-            return another in self
+            return another in tuple(self)
 
     @staticmethod
     def from_str(region:str) -> 'GenomeRange':
@@ -106,6 +143,12 @@ class GenomeRange(GenomeRange_):
         return True
 
     def to_bin(self, binsize:int) -> 'GenomeBinRange':
+        """
+        Convert to GenomeBinRange, unit in 'bin'.
+
+        >>> GenomeRange("chr1", 0, 1001).to_bin(binsize=1000)
+        GenomeBinRange(chr1, 0, 1)
+        """
         if self.start is None:
             return GenomeBinRange(self.chrom, self.start, self.end)
         elif self.end is None:
@@ -118,9 +161,16 @@ class GenomeBinRange(GenomeRange):
     """
     Similar to GenomeRange, but the unit is the number of 'bin'.
     """
+
+    def __repr__(self) -> str:
+        return f"GenomeBinRange({self.chrom}, {self.start}, {self.end})"
+
     def to_bp(self, binsize:int) -> GenomeRange:
         """
         Convert to GenomeRange, unit in 'bp'
+
+        >>> GenomeBinRange("chr1", 0, 1).to_bp(1000)
+        GenomeRange(chr1, 0, 1000)
         """
         if self.start is None:
             return GenomeRange(self.chrom, self.start, self.end)
@@ -196,13 +246,18 @@ class ChromSizes(object):
             return False
         chr_len = self.sizes[grange.chrom]
         chrom_range = GenomeRange(grange.chrom, 0, chr_len)
-        return grange in chrom_range  
+        return grange in chrom_range
 
-    def __contains__(self, another:Union[GenomeRange, Any]) -> bool:
+    def __contains__(self, another:Union[GenomeRange, str]) -> bool:
         if isinstance(another, GenomeRange):
-            return self.contain_range(another)
+            if another.range_type == "chromosome":
+                return another.chrom in self
+            else:
+                return self.contain_range(another)
+        elif isinstance(another, str):
+            return another in self.sizes
         else:
-            raise TypeError("ChromSizes can only contains GenomeRange type object.")
+            raise TypeError("ChromSizes can only contains GenomeRange or str object.")
 
     def __getitem__(self, key:str):
         return self.sizes[key]
