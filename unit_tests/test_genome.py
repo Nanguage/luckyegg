@@ -137,4 +137,8 @@ def test_ChromSizes_convert():
     assert chrsizes_bin.unit == "bin"
     assert chrsizes_bin["chr1"] == 2
     assert chrsizes_bin["chr2"] == 2
+    chrsizes2 = chrsizes_bin.to_bp(binsize=10000)
+    assert chrsizes2.unit == "bp"
+    assert chrsizes2["chr1"] == 20000
+    assert chrsizes2["chr2"] == 20000
 
