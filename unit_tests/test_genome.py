@@ -71,10 +71,10 @@ def test_GenomeRange_convert():
     gr1 = GenomeRange("chr1", 0, 1001)
     gbr1 = gr1.to_bin(binsize=1000)
     assert isinstance(gbr1, GenomeBinRange)
-    assert (gbr1.start, gbr1.end) == (0, 1)
+    assert (gbr1.start, gbr1.end) == (0, 2)
     gr2 = gbr1.to_bp(binsize=1000)
     assert not isinstance(gr2, GenomeBinRange)
-    assert (gr2.start, gr2.end) == (0, 1000)
+    assert (gr2.start, gr2.end) == (0, 2000)
     gr3 = genome_range("chr1:1000")
     gbr3 = gr3.to_bin(binsize=1000)
     assert isinstance(gbr3, GenomeBinRange)
@@ -83,6 +83,12 @@ def test_GenomeRange_convert():
     gbr4 = gr4.to_bin(binsize=1000)
     assert isinstance(gbr4, GenomeBinRange)
     assert (gbr4.start, gbr4.end) == (None, None)
+    assert genome_range("chr1:1500").to_bin(binsize=1000).start == 1
+    assert genome_range("chr1:1000").to_bin(binsize=1000).start == 1
+    assert genome_range("chr1:999").to_bin(binsize=1000).start == 0
+    assert genome_range("chr1:1000-1002").to_bin(binsize=1000).end == 2
+    assert genome_range("chr1:100-800").to_bin(binsize=1000).end == 1
+    assert genome_range("chr1:100-1000").to_bin(binsize=1000).end == 1
 
 
 def gen_example_chromsizes_file(tmp_dir="/tmp"):
@@ -121,3 +127,14 @@ def test_ChromSizes_contains():
     assert genome_range("chr3:1000-2000") not in chrsizes
     assert genome_range("chr1:100-200") in chrsizes
     
+
+def test_ChromSizes_convert():
+    chrsizes = ChromSizes({
+        "chr1": 15000,
+        "chr2": 20000,
+    })
+    chrsizes_bin = chrsizes.to_bin(binsize=10000)
+    assert chrsizes_bin.unit == "bin"
+    assert chrsizes_bin["chr1"] == 2
+    assert chrsizes_bin["chr2"] == 2
+

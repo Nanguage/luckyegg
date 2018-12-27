@@ -49,12 +49,14 @@ class GenomeRange(GenomeRange_):
         'chromosome'
         >>> GenomeRange("chr1", 1000, None).range_type
         'point'
+        >>> GenomeRange("chr1", 1000, 1001).range_type
+        'point'
         >>> GenomeRange("chr1", 0, 1000).range_type
         'range'
         """
         if self.start is None and self.end is None:
             return "chromosome"
-        elif self.start is not None and self.end is None:
+        elif (self.start is not None and self.end is None) or (self.start + 1 == self.end):
             return "point"
         else:
             return "range"
@@ -146,7 +148,7 @@ class GenomeRange(GenomeRange_):
         """
         Convert to GenomeBinRange, unit in 'bin'.
 
-        >>> GenomeRange("chr1", 0, 1001).to_bin(binsize=1000)
+        >>> GenomeRange("chr1", 0, 1000).to_bin(binsize=1000)
         GenomeBinRange(chr1, 0, 1)
         """
         if self.start is None:
@@ -154,7 +156,7 @@ class GenomeRange(GenomeRange_):
         elif self.end is None:
             return GenomeBinRange(self.chrom, self.start//binsize, self.end)
         else:
-            return GenomeBinRange(self.chrom, self.start//binsize, self.end//binsize)
+            return GenomeBinRange(self.chrom, self.start//binsize, self.end//binsize - int(self.end % binsize ==0) + 1)
 
 
 class GenomeBinRange(GenomeRange):
@@ -222,15 +224,27 @@ class ChromSizes(object):
         self.sizes = chromsizes
         self.unit = unit
 
-    def to_bin(self, binsize) -> 'ChromSizes':
+    def to_bin(self, binsize:int) -> 'ChromSizes':
         """
         Return a ChromSize object unit in 'bin'
         """
         if self.unit != 'bin':
             sizes = {}
             for key, value in self.sizes.items():
-                sizes[key] = value // binsize
+                sizes[key] = value // binsize + int(value % binsize != 0)
             return ChromSizes(sizes, "bin")
+        else:
+            return self
+
+    def to_bp(self, binsize:int) -> 'ChromSize':
+        """
+        Return a ChromSize object unit in 'bp'
+        """
+        if self.unit != 'bp':
+            sizes = {}
+            for key, value in self.sizes.items():
+                sizes[key] = value * binsize
+            return ChromSizes(sizes, "bp")
         else:
             return self
 
