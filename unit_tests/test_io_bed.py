@@ -89,7 +89,6 @@ def test_read_bed():
             header_rows = [f.readline() for _ in range(header_rows)]
             for bed, line in zip(read_bed(bed_path), f):
                 assert isinstance(bed, bed_type)
-                assert len(bed) == len(bed_type.fields)
                 assert str(bed) == line.strip()
                 items = line.strip().split()
                 genome_range_str = f"{items[0]}:{items[1]}-{items[2]}"

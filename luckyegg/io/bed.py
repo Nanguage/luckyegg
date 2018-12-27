@@ -1,17 +1,50 @@
 from collections import namedtuple
-from typing import Iterable, Union, Type, List
+from typing import Iterable, Union, Type, List, NewType, NamedTuple, TypeVar
 
 from luckyegg.genome import GenomeRange
 
-BED_BASIC_FIELDS = ['chrom', 'start', 'end']
-BED6_FIELDS = BED_BASIC_FIELDS + ['name', 'score', 'strand']
-BED9_FIELDS = BED6_FIELDS + ['thickStart', 'thichEnd', 'itemRGB']
-BED12_FIELDS = BED9_FIELDS + ['blockCount', 'blockSizes', 'blockStarts']
-BED_GRAPH_FIELDS = BED_BASIC_FIELDS + ['value']
+class BED6_(NamedTuple):
+    chrom: str
+    start: int
+    end: int
+    name: str
+    score: Union[int, float, str]
+    strand: str
 
-def bed_like(name:str, fields:List[str]) -> Type:
-    base_class = namedtuple(name+"_", fields)
+class BED9_(NamedTuple):
+    chrom: str
+    start: int
+    end: int
+    name: str
+    score: Union[int, float, str]
+    strand: str
+    thickStart: str
+    thickEnd: str
+    itemRGB: str
 
+class BED12_(NamedTuple):
+    chrom: str
+    start: int
+    end: int
+    name: str
+    score: Union[int, float, str]
+    strand: str
+    thickStart: str
+    thickEnd: str
+    itemRGB: str
+    blockCount: str
+    blockSizes: str
+    blockStarts: str
+
+class BEDGraph_(NamedTuple):
+    chrom: str
+    start: int
+    end: int
+    value: Union[int, float, str]
+
+
+class BEDLike(object):
+    @classmethod
     def from_line(cls, line):
         """
         compose BED record from a line.
@@ -21,32 +54,34 @@ def bed_like(name:str, fields:List[str]) -> Type:
         items[2] = int(items[2])
         return cls(*items)
 
-    class_ = type(name, (base_class,), {
-        'fields': fields,
-        'genome_range': property(
-            lambda self: GenomeRange(self.chrom, self.start, self.end)),
-        '__str__': lambda self: "\t".join([str(i) for i in self]),
-        'from_line': classmethod(from_line),
-    })
-    return class_
+    @property
+    def genome_range(self):
+        return GenomeRange(self.chrom, self.start, self.end)
+
+    def __str__(self):
+        return "\t".join([str(i) for i in self])
 
 
-Bed6 = bed_like("Bed6", BED6_FIELDS)
-Bed9 = bed_like("Bed9", BED9_FIELDS)
-Bed12 = bed_like("Bed12", BED12_FIELDS)
-BedGraph = bed_like("BedGraph", BED_GRAPH_FIELDS)
+class Bed6(BEDLike, BED6_):
+    pass
 
-BEDLike = Union[Bed6, Bed9, Bed12, BedGraph]
+class Bed9(BEDLike, BED9_):
+    pass
+
+class Bed12(BEDLike, BED12_):
+    pass
+
+class BedGraph(BEDLike, BEDGraph_):
+    pass
 
 
 def read_bed(path: str) -> Iterable[BEDLike]:
     bed_type = infer_bed_type(path)
     header_rows = infer_header_rows(path)
     with open(path) as f:
-        header_rows = [f.readline() for _ in range(header_rows)]
+        [f.readline() for _ in range(header_rows)]
         for line in f:
             line = line.strip()
-            items = line.split()
             yield bed_type.from_line(line)
 
 
