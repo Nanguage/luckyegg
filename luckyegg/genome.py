@@ -1,5 +1,6 @@
 import re
 from collections import namedtuple
+from typing import Union, Any
 import doctest
 
 
@@ -14,7 +15,7 @@ GenomeRange_ = namedtuple("GenomeRange", ["chrom", "start", "end"])
 
 class GenomeRange(GenomeRange_):
     """
-    Objects for represent a genome range, a genome position or a chromosome.
+    Object for represent a genome range, a genome position or a chromosome.
 
     Attributes
     ----------
@@ -53,26 +54,28 @@ class GenomeRange(GenomeRange_):
     def length(self) -> int:
         return abs(self.end - self.start)
 
-    def __contains__(self, another:'GenomeRange') -> bool:
-        if another.chrom != self.chrom:
-            return False
-        if another.start < self.start:
-            return False
-        if another.end > self.end:
-            return False
-        return True
+    def __contains__(self, another:Union['GenomeRange', Any]) -> bool:
+        if isinstance(another, GenomeRange):
+            if another.chrom != self.chrom:
+                return False
+            if another.start < self.start:
+                return False
+            if another.end > self.end:
+                return False
+            return True
+        else:
+            return another in self
 
     @staticmethod
     def from_str(region:str) -> 'GenomeRange':
         if '-' in region:
-            chr_, s, e = re.split("[:-]", region)[:3]
-            s, e = int(s), int(e)
+            chr_, s_, e_ = re.split("[:-]", region)[:3]
+            s, e = int(s_), int(e_)
             grange = GenomeRange(chr_, s, e)
         elif ':' in region:
-            chr_, s = region.split(":")
-            s = int(s)
-            e = None
-            grange = GenomeRange(chr_, s, e)
+            chr_, s_ = region.split(":")
+            s = int(s_)
+            grange = GenomeRange(chr_, s, None)
         else:
             chr_ = region
             grange = GenomeRange(chr_, None, None)
@@ -104,12 +107,15 @@ class GenomeRange(GenomeRange_):
 
 
 class GenomeBinRange(GenomeRange):
+    """
+    Similar to GenomeRange, but the unit is the number of 'bin'.
+    """
     pass
 
 
 def genome_range(*args) -> GenomeRange:
     """
-    A convenient function for construct the GenomeRange object.
+    A convenient function for construct a valid GenomeRange object.
 
     >>> genome_range("chr1:1000-2000")
     GenomeRange(chr1, 1000, 2000)
@@ -132,6 +138,60 @@ def genome_range(*args) -> GenomeRange:
         result = GenomeRange(chrom, start, end)
     GenomeRange.check(result)
     return result
+
+
+class ChromSizes(object):
+    """
+    Object for represent the Chromosomes's length of a Genome.
+
+    Attributes
+    ----------
+    sizes : dict
+        A dict store Chromosome's name to it's size.
+    unit : {'bp', 'bin'}
+        The unit of chromosome size.
+    """
+    def __init__(self, chromsizes:dict, unit:str='bp') -> None:
+        self.sizes = chromsizes
+        self.unit = unit
+
+    def to_bin(self, binsize) -> 'ChromSizes':
+        """
+        Return a ChromSize object unit in 'bin'
+        """
+        if self.unit != 'bin':
+            sizes = {}
+            for key, value in self.sizes.items():
+                sizes[key] = value // binsize
+            return ChromSizes(sizes, "bin")
+        else:
+            return self
+
+    def contain_range(self, grange:GenomeRange) -> bool:
+        """
+        Judge a GenomeRange within the genome or not.
+        """
+        if self.unit == "bin" and not isinstance(grange, GenomeBinRange):
+            return False
+        if self.unit != "bin" and isinstance(grange, GenomeBinRange):
+            return False
+        if grange.chrom not in self.sizes:
+            return False
+        chr_len = self.sizes[grange.chrom]
+        chrom_range = GenomeRange(grange.chrom, 0, chr_len)
+        return grange in chrom_range        
+
+    @staticmethod
+    def from_file(path:str) -> 'ChromSizes':
+        """
+        From chromosome length file.
+        """
+        sizes = {}
+        with open(path) as f:
+            for line in f:
+                items = line.strip().split()
+                sizes[items[0]] = int(items[1])
+        return ChromSizes(sizes, unit="bp")
 
 
 if __name__ == "__main__":
