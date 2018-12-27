@@ -105,12 +105,29 @@ class GenomeRange(GenomeRange_):
 
         return True
 
+    def to_bin(self, binsize:int) -> 'GenomeBinRange':
+        if self.start is None:
+            return GenomeBinRange(self.chrom, self.start, self.end)
+        elif self.end is None:
+            return GenomeBinRange(self.chrom, self.start//binsize, self.end)
+        else:
+            return GenomeBinRange(self.chrom, self.start//binsize, self.end//binsize)
+
 
 class GenomeBinRange(GenomeRange):
     """
     Similar to GenomeRange, but the unit is the number of 'bin'.
     """
-    pass
+    def to_bp(self, binsize:int) -> GenomeRange:
+        """
+        Convert to GenomeRange, unit in 'bp'
+        """
+        if self.start is None:
+            return GenomeRange(self.chrom, self.start, self.end)
+        elif self.end is None:
+            return GenomeRange(self.chrom, self.start*binsize, self.end)
+        else:
+            return GenomeRange(self.chrom, self.start*binsize, self.end*binsize)
 
 
 def genome_range(*args) -> GenomeRange:
@@ -179,7 +196,16 @@ class ChromSizes(object):
             return False
         chr_len = self.sizes[grange.chrom]
         chrom_range = GenomeRange(grange.chrom, 0, chr_len)
-        return grange in chrom_range        
+        return grange in chrom_range  
+
+    def __contains__(self, another:Union[GenomeRange, Any]) -> bool:
+        if isinstance(another, GenomeRange):
+            return self.contain_range(another)
+        else:
+            raise TypeError("ChromSizes can only contains GenomeRange type object.")
+
+    def __getitem__(self, key:str):
+        return self.sizes[key]
 
     @staticmethod
     def from_file(path:str) -> 'ChromSizes':
